@@ -26,6 +26,8 @@
 
     dist\XuexitongWidget.exe
 
+仓库不包含编译好的 exe；可以直接用分享包 / Release 里的 XuexitongWidget.exe，或运行 build.ps1 生成 dist\XuexitongWidget.exe。
+
 首次运行会弹出登录框，输入你自己的学习通手机号和密码；密码用 Windows DPAPI 加密保存在本机，不会上传。关掉窗口即退出；下次登录 Windows 会自动启动，首次运行会自动创建启动文件夹快捷方式。它平时在桌面层，按 Win+D / 显示桌面即可看到。
 
 ## 文件说明
