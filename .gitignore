@@ -1,0 +1,8 @@
+dist/
+preview.png
+*.log
+*.user
+*.suo
+bin/
+obj/
+.vs/
