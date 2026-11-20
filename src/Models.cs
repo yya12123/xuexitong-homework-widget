@@ -25,6 +25,7 @@ namespace XxtWidget
         public string CourseName { get; set; }
         public string ClassName { get; set; }
         public string DetailUrl { get; set; }
+        public string OpenUrl { get; set; }
         public string Status { get; set; }
         public DateTime? PublishDate { get; set; }
         public DateTime? Deadline { get; set; }
@@ -32,7 +33,7 @@ namespace XxtWidget
 
         public HomeworkItem()
         {
-            Key = ""; Title = ""; CourseName = ""; ClassName = ""; DetailUrl = ""; Status = "1";
+            Key = ""; Title = ""; CourseName = ""; ClassName = ""; DetailUrl = ""; OpenUrl = ""; Status = "1";
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

@@ -106,6 +106,7 @@ namespace XxtWidget
         public string CourseName { get; set; }
         public string ClassName { get; set; }
         public string DetailUrl { get; set; }
+        public string OpenUrl { get; set; }
         public string Status { get; set; }
         public long DeadlineTicks { get; set; }
         public long PublishTicks { get; set; }
@@ -150,6 +151,7 @@ namespace XxtWidget
                     c.CourseName = it.CourseName;
                     c.ClassName = it.ClassName;
                     c.DetailUrl = it.DetailUrl;
+                    c.OpenUrl = it.OpenUrl;
                     c.Status = it.Status;
                     c.DeadlineTicks = it.Deadline.HasValue ? it.Deadline.Value.Ticks : 0;
                     c.PublishTicks = it.PublishDate.HasValue ? it.PublishDate.Value.Ticks : 0;

@@ -400,6 +400,7 @@ namespace XxtWidget
                 item.CourseName = c.CourseName;
                 item.ClassName = c.ClassName;
                 item.DetailUrl = c.DetailUrl;
+                item.OpenUrl = c.OpenUrl;
                 item.Status = c.Status;
                 item.Deadline = c.DeadlineTicks > 0 ? new DateTime(c.DeadlineTicks) : (DateTime?)null;
                 item.PublishDate = c.PublishTicks > 0 ? new DateTime(c.PublishTicks) : (DateTime?)null;
@@ -721,10 +722,12 @@ namespace XxtWidget
             ContentPresenter presenter = FindAncestor<ContentPresenter>(source);
             if (presenter == null) return;
             HomeworkItem item = presenter.DataContext as HomeworkItem;
-            if (item == null || string.IsNullOrEmpty(item.DetailUrl)) return;
+            if (item == null) return;
+            string target = !string.IsNullOrEmpty(item.OpenUrl) ? item.OpenUrl : item.DetailUrl;
+            if (string.IsNullOrEmpty(target)) return;
             try
             {
-                Process.Start(new ProcessStartInfo(item.DetailUrl) { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
             }
             catch (Exception ex) { Log.Write("open url: " + ex.Message); }
         }

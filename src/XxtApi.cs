@@ -381,6 +381,13 @@ namespace XxtWidget
         private async Task<DateTime?> GetDeadlineAsync(HomeworkItem item, CancellationToken ct)
         {
             string html = await GetAsync(item.DetailUrl, "https://mooc1.chaoxing.com/", ct);
+            Match openMatch = Regex.Match(html, "doHomeWork\\?([^'\"<>\\s]+)", RegexOptions.Singleline);
+            if (openMatch.Success)
+            {
+                string query = HttpUtility.HtmlDecode(openMatch.Groups[1].Value).Replace("&amp;", "&");
+                if (query.EndsWith("&")) query = query.Substring(0, query.Length - 1);
+                item.OpenUrl = "https://mooc1.chaoxing.com/mooc-ans/work/phone/doHomeWork?" + query;
+            }
             int month = 0, day = 0, hour = 0, minute = 0, second = 0;
             Match m = DeadlineCnRegex.Match(html);
             if (m.Success)
