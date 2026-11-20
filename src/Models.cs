@@ -8,6 +8,7 @@ namespace XxtWidget
     {
         public string CourseId { get; set; }
         public string ClassId { get; set; }
+        public string Cpi { get; set; }
         public string CourseName { get; set; }
         public string ClassName { get; set; }
     }
@@ -22,6 +23,10 @@ namespace XxtWidget
 
         public string Key { get; set; }
         public string Title { get; set; }
+        public string CourseId { get; set; }
+        public string ClassId { get; set; }
+        public string Cpi { get; set; }
+        public string TaskRefId { get; set; }
         public string CourseName { get; set; }
         public string ClassName { get; set; }
         public string DetailUrl { get; set; }
@@ -33,7 +38,7 @@ namespace XxtWidget
 
         public HomeworkItem()
         {
-            Key = ""; Title = ""; CourseName = ""; ClassName = ""; DetailUrl = ""; OpenUrl = ""; Status = "1";
+            Key = ""; Title = ""; CourseId = ""; ClassId = ""; Cpi = ""; TaskRefId = ""; CourseName = ""; ClassName = ""; DetailUrl = ""; OpenUrl = ""; Status = "1";
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

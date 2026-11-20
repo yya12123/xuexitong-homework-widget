@@ -215,6 +215,12 @@ namespace XxtWidget
                         }
                     }
 
+                    if (list.Count > 0)
+                    {
+                        Report(progress, "正在获取网页版作答链接...");
+                        await AttachPcWorkUrlsAsync(list, progress, ct);
+                    }
+
                     if (includeOverdue)
                     {
                         DateTime cutoff = DateTime.Now.AddDays(-overdueDays);
@@ -248,6 +254,94 @@ namespace XxtWidget
             int cmp = ha.CompareTo(hb);
             if (cmp != 0) return cmp;
             return string.Compare(a.Title, b.Title, StringComparison.Ordinal);
+        }
+
+        private async Task AttachPcWorkUrlsAsync(List<HomeworkItem> items, IProgress<string> progress, CancellationToken ct)
+        {
+            Dictionary<string, List<HomeworkItem>> groups = new Dictionary<string, List<HomeworkItem>>();
+            foreach (HomeworkItem item in items)
+            {
+                if (string.IsNullOrEmpty(item.CourseId) || string.IsNullOrEmpty(item.ClassId) || string.IsNullOrEmpty(item.Cpi)) continue;
+                string key = item.CourseId + "|" + item.ClassId + "|" + item.Cpi;
+                List<HomeworkItem> group;
+                if (!groups.TryGetValue(key, out group))
+                {
+                    group = new List<HomeworkItem>();
+                    groups[key] = group;
+                }
+                group.Add(item);
+            }
+            if (groups.Count == 0) return;
+            int done = 0;
+            using (SemaphoreSlim sem = new SemaphoreSlim(3))
+            {
+                List<Task> tasks = new List<Task>();
+                foreach (KeyValuePair<string, List<HomeworkItem>> pair in groups)
+                {
+                    List<HomeworkItem> group = pair.Value;
+                    HomeworkItem first = group[0];
+                    CourseRef course = new CourseRef();
+                    course.CourseId = first.CourseId;
+                    course.ClassId = first.ClassId;
+                    course.Cpi = first.Cpi;
+                    course.CourseName = first.CourseName;
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        await sem.WaitAsync(ct);
+                        try
+                        {
+                            Dictionary<string, string> map = await GetPcWorkUrlsAsync(course, ct);
+                            if (map.Count > 0)
+                            {
+                                foreach (HomeworkItem item in group)
+                                {
+                                    string url;
+                                    if (!string.IsNullOrEmpty(item.TaskRefId) && map.TryGetValue(item.TaskRefId, out url)) item.OpenUrl = url;
+                                }
+                            }
+                        }
+                        catch (XxtSessionException) { throw; }
+                        catch (Exception ex) { Log.Write("pc work urls " + course.CourseName + ": " + ex.Message); }
+                        finally
+                        {
+                            sem.Release();
+                            int n = Interlocked.Increment(ref done);
+                            Report(progress, string.Format("正在获取网页版作答链接 {0}/{1}", n, groups.Count));
+                        }
+                    }));
+                }
+                await Task.WhenAll(tasks);
+            }
+        }
+
+        private async Task<Dictionary<string, string>> GetPcWorkUrlsAsync(CourseRef course, CancellationToken ct)
+        {
+            Dictionary<string, string> map = new Dictionary<string, string>();
+            string courseUrl = "https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=" + course.CourseId + "&clazzid=" + course.ClassId + "&cpi=" + course.Cpi + "&ismooc2=1&v=2";
+            string courseHtml = await GetAsync(courseUrl, "https://mooc1.chaoxing.com/", ct);
+            string workEnc = HiddenValue(courseHtml, "workEnc");
+            string t = HiddenValue(courseHtml, "t");
+            if (string.IsNullOrEmpty(workEnc)) return map;
+            string listUrl = "https://mooc1.chaoxing.com/mooc2/work/list?courseId=" + course.CourseId + "&classId=" + course.ClassId + "&cpi=" + course.Cpi + "&enc=" + workEnc;
+            if (!string.IsNullOrEmpty(t)) listUrl += "&t=" + t;
+            string listHtml = await GetAsync(listUrl, courseUrl, ct);
+            if (listHtml.IndexOf("无权限", StringComparison.Ordinal) >= 0) return map;
+            MatchCollection links = Regex.Matches(listHtml, "<li\\b[^>]*\\bdata=\"([^\"]*mooc2/work/task[^\"]*)\"[^>]*>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+            foreach (Match m in links)
+            {
+                string url = HttpUtility.HtmlDecode(m.Groups[1].Value).Replace("&amp;", "&");
+                if (url.StartsWith("/", StringComparison.Ordinal)) url = "https://mooc1.chaoxing.com" + url;
+                else if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) url = "https://mooc1.chaoxing.com/" + url;
+                Match id = Regex.Match(url, "[?&]workId=([0-9]+)");
+                if (id.Success) map[id.Groups[1].Value] = url;
+            }
+            return map;
+        }
+
+        private static string HiddenValue(string html, string id)
+        {
+            Match m = Regex.Match(html, "id=\"" + Regex.Escape(id) + "\"[^>]*?value=\"([^\"]*)\"", RegexOptions.IgnoreCase);
+            return m.Success ? HttpUtility.HtmlDecode(m.Groups[1].Value) : "";
         }
 
         private async Task<List<CourseRef>> GetCoursesAsync(CancellationToken ct)
@@ -290,6 +384,7 @@ namespace XxtWidget
                 CourseRef c = new CourseRef();
                 c.CourseId = courseId;
                 c.ClassId = classId;
+                c.Cpi = AsString(content.ContainsKey("cpi") ? content["cpi"] : null);
                 c.CourseName = AsString(info.ContainsKey("name") ? info["name"] : null);
                 c.ClassName = AsString(content.ContainsKey("name") ? content["name"] : null);
                 result.Add(c);
@@ -374,6 +469,11 @@ namespace XxtWidget
                 item.PublishDate = pub;
                 item.DetailUrl = detailUrl;
                 item.Key = course.CourseId + "_" + course.ClassId + "_" + detailUrl;
+                item.CourseId = course.CourseId;
+                item.ClassId = course.ClassId;
+                item.Cpi = course.Cpi;
+                Match taskRefMatch = Regex.Match(data, "[?&]taskrefId=([0-9]+)", RegexOptions.IgnoreCase);
+                if (taskRefMatch.Success) item.TaskRefId = taskRefMatch.Groups[1].Value;
                 output.Add(item);
             }
         }
