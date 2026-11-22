@@ -369,7 +369,7 @@ namespace XxtWidget
                 if (cata != "课程") continue;
                 Dictionary<string, object> content = AsDict(ch.ContainsKey("content") ? ch["content"] : null);
                 if (content == null) continue;
-                if (AsLong(content.ContainsKey("isretire") ? content["isretire"] : null) == 1) continue;
+                // 不能只看 isretire：已标记结束的班级仍可能有未交作业（例如计算机组成原理的 25科技3 班）
                 Dictionary<string, object> course = AsDict(content.ContainsKey("course") ? content["course"] : null);
                 if (course == null) continue;
                 object[] data = AsArray(course.ContainsKey("data") ? course["data"] : null);
