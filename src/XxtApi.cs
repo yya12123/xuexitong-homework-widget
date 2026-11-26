@@ -256,6 +256,12 @@ namespace XxtWidget
             return string.Compare(a.Title, b.Title, StringComparison.Ordinal);
         }
 
+        private class PcWorkLink
+        {
+            public string Url;
+            public double RemainingHours;
+        }
+
         private async Task AttachPcWorkUrlsAsync(List<HomeworkItem> items, IProgress<string> progress, CancellationToken ct)
         {
             Dictionary<string, List<HomeworkItem>> groups = new Dictionary<string, List<HomeworkItem>>();
@@ -290,13 +296,18 @@ namespace XxtWidget
                         await sem.WaitAsync(ct);
                         try
                         {
-                            Dictionary<string, string> map = await GetPcWorkUrlsAsync(course, ct);
+                            Dictionary<string, PcWorkLink> map = await GetPcWorkUrlsAsync(course, ct);
                             if (map.Count > 0)
                             {
                                 foreach (HomeworkItem item in group)
                                 {
-                                    string url;
-                                    if (!string.IsNullOrEmpty(item.TaskRefId) && map.TryGetValue(item.TaskRefId, out url)) item.OpenUrl = url;
+                                    PcWorkLink link;
+                                    if (!string.IsNullOrEmpty(item.TaskRefId) && map.TryGetValue(item.TaskRefId, out link))
+                                    {
+                                        item.OpenUrl = link.Url;
+                                        item.PcRemainingHours = link.RemainingHours;
+                                        if (item.Status == "3" && link.RemainingHours > 0) item.Deadline = DateTime.Now.AddHours(link.RemainingHours);
+                                    }
                                 }
                             }
                         }
@@ -312,11 +323,16 @@ namespace XxtWidget
                 }
                 await Task.WhenAll(tasks);
             }
+            for (int i = items.Count - 1; i >= 0; i--)
+            {
+                HomeworkItem it = items[i];
+                if (it.Status == "3" && it.PcRemainingHours <= 0) items.RemoveAt(i);
+            }
         }
 
-        private async Task<Dictionary<string, string>> GetPcWorkUrlsAsync(CourseRef course, CancellationToken ct)
+        private async Task<Dictionary<string, PcWorkLink>> GetPcWorkUrlsAsync(CourseRef course, CancellationToken ct)
         {
-            Dictionary<string, string> map = new Dictionary<string, string>();
+            Dictionary<string, PcWorkLink> map = new Dictionary<string, PcWorkLink>();
             string courseUrl = "https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=" + course.CourseId + "&clazzid=" + course.ClassId + "&cpi=" + course.Cpi + "&ismooc2=1&v=2";
             string courseHtml = await GetAsync(courseUrl, "https://mooc1.chaoxing.com/", ct);
             string workEnc = HiddenValue(courseHtml, "workEnc");
@@ -326,14 +342,24 @@ namespace XxtWidget
             if (!string.IsNullOrEmpty(t)) listUrl += "&t=" + t;
             string listHtml = await GetAsync(listUrl, courseUrl, ct);
             if (listHtml.IndexOf("无权限", StringComparison.Ordinal) >= 0) return map;
-            MatchCollection links = Regex.Matches(listHtml, "<li\\b[^>]*\\bdata=\"([^\"]*mooc2/work/task[^\"]*)\"[^>]*>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+            MatchCollection links = Regex.Matches(listHtml, "<li\\b[^>]*\\bdata=\"([^\"]*mooc2/work/task[^\"]*)\"[^>]*>(.*?)</li>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
             foreach (Match m in links)
             {
                 string url = HttpUtility.HtmlDecode(m.Groups[1].Value).Replace("&amp;", "&");
                 if (url.StartsWith("/", StringComparison.Ordinal)) url = "https://mooc1.chaoxing.com" + url;
                 else if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) url = "https://mooc1.chaoxing.com/" + url;
                 Match id = Regex.Match(url, "[?&]workId=([0-9]+)");
-                if (id.Success) map[id.Groups[1].Value] = url;
+                if (!id.Success) continue;
+                PcWorkLink link = new PcWorkLink();
+                link.Url = url;
+                Match rem = Regex.Match(m.Groups[2].Value, "剩余\\s*(?:(\\d+)\\s*小时)?\\s*(?:(\\d+)\\s*分钟)?");
+                if (rem.Success)
+                {
+                    int n;
+                    if (int.TryParse(rem.Groups[1].Value, out n)) link.RemainingHours += n;
+                    if (int.TryParse(rem.Groups[2].Value, out n)) link.RemainingHours += n / 60.0;
+                }
+                map[id.Groups[1].Value] = link;
             }
             return map;
         }
@@ -438,7 +464,7 @@ namespace XxtWidget
                 Match statusMatch = Regex.Match(attrs, @"status=""([^""]*)""", RegexOptions.IgnoreCase);
                 if (!statusMatch.Success) continue;
                 string status = statusMatch.Groups[1].Value.Trim();
-                if (status != "1" && !(includeOverdue && status == "2")) continue;
+                if (status != "1" && status != "3" && !(includeOverdue && status == "2")) continue;
                 Match titleMatch = Regex.Match(body, @"<h3[^>]*>(.*?)</h3>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
                 if (!titleMatch.Success) continue;
                 string title = Regex.Replace(titleMatch.Groups[1].Value, "<[^>]+>", " ");

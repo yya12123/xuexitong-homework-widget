@@ -32,6 +32,7 @@ namespace XxtWidget
         public string DetailUrl { get; set; }
         public string OpenUrl { get; set; }
         public string Status { get; set; }
+        public double PcRemainingHours { get; set; }
         public DateTime? PublishDate { get; set; }
         public DateTime? Deadline { get; set; }
         public int Rank { get; set; }
@@ -70,6 +71,7 @@ namespace XxtWidget
             get
             {
                 string s = string.IsNullOrEmpty(CourseName) ? ClassName : CourseName;
+                if (Status == "3") s = s + " · 待批阅";
                 if (Deadline.HasValue) s = s + " · " + Deadline.Value.ToString("MM-dd HH:mm") + " 截止";
                 return s;
             }
