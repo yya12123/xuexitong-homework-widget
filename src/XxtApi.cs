@@ -117,7 +117,7 @@ namespace XxtWidget
             Log.Write("login ok for " + _account);
         }
 
-        public async Task<List<HomeworkItem>> FetchAllAsync(bool includeOverdue, int overdueDays, IProgress<string> progress, CancellationToken ct)
+        public async Task<List<HomeworkItem>> FetchAllAsync(bool includeOverdue, int overdueDays, bool includePending, IProgress<string> progress, CancellationToken ct)
         {
             LastWarnings.Clear();
             for (int attempt = 0; attempt < 2; attempt++)
@@ -147,7 +147,7 @@ namespace XxtWidget
                                 await sem.WaitAsync(ct);
                                 try
                                 {
-                                    List<HomeworkItem> items = await GetWorkListAsync(c, includeOverdue, ct);
+                                    List<HomeworkItem> items = await GetWorkListAsync(c, includeOverdue, includePending, ct);
                                     lock (sync) raw.AddRange(items);
                                 }
                                 catch (XxtSessionException) { throw; }
@@ -418,7 +418,7 @@ namespace XxtWidget
             return result;
         }
 
-        private async Task<List<HomeworkItem>> GetWorkListAsync(CourseRef course, bool includeOverdue, CancellationToken ct)
+        private async Task<List<HomeworkItem>> GetWorkListAsync(CourseRef course, bool includeOverdue, bool includePending, CancellationToken ct)
         {
             string firstUrl = "https://mooc1.chaoxing.com/phone/moocAnalysis/workList?courseId=" + course.CourseId + "&classId=" + course.ClassId;
             string html = await GetAsync(firstUrl, "https://mooc1.chaoxing.com/", ct);
@@ -427,7 +427,7 @@ namespace XxtWidget
                 throw new XxtException("作业页面没有访问权限 (3004)");
             }
             List<HomeworkItem> list = new List<HomeworkItem>();
-            ParseWorkRows(html, course, includeOverdue, list);
+            ParseWorkRows(html, course, includeOverdue, includePending, list);
             bool more = Regex.IsMatch(html, @"var\s+havemore\s*=\s*true", RegexOptions.IgnoreCase);
             int page = 1;
             while (more && page < 10)
@@ -447,7 +447,7 @@ namespace XxtWidget
                     fragment = await resp.Content.ReadAsStringAsync();
                 }
                 int before = list.Count;
-                ParseWorkRows(fragment, course, includeOverdue, list);
+                ParseWorkRows(fragment, course, includeOverdue, includePending, list);
                 int rows = Regex.Matches(fragment, @"<dt\b", RegexOptions.IgnoreCase).Count;
                 if (list.Count == before && rows == 0) break;
                 if (rows < 20) break;
@@ -455,7 +455,7 @@ namespace XxtWidget
             return list;
         }
 
-        private void ParseWorkRows(string html, CourseRef course, bool includeOverdue, List<HomeworkItem> output)
+        private void ParseWorkRows(string html, CourseRef course, bool includeOverdue, bool includePending, List<HomeworkItem> output)
         {
             foreach (Match m in WorkDtRegex.Matches(html))
             {
@@ -464,7 +464,8 @@ namespace XxtWidget
                 Match statusMatch = Regex.Match(attrs, @"status=""([^""]*)""", RegexOptions.IgnoreCase);
                 if (!statusMatch.Success) continue;
                 string status = statusMatch.Groups[1].Value.Trim();
-                if (status != "1" && status != "3" && !(includeOverdue && status == "2")) continue;
+                bool include = status == "1" || (includeOverdue && status == "2") || (includePending && status == "3");
+                if (!include) continue;
                 Match titleMatch = Regex.Match(body, @"<h3[^>]*>(.*?)</h3>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
                 if (!titleMatch.Success) continue;
                 string title = Regex.Replace(titleMatch.Groups[1].Value, "<[^>]+>", " ");

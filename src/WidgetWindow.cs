@@ -65,6 +65,7 @@ namespace XxtWidget
         private Border _chip60;
         private Border _chip120;
         private Border _toggleOverdue;
+        private Border _togglePending;
         private StackPanel _overdueRangePanel;
         private Border _chip7d;
         private Border _chip30d;
@@ -235,6 +236,7 @@ namespace XxtWidget
             _chip60 = Find<Border>("Chip60");
             _chip120 = Find<Border>("Chip120");
             _toggleOverdue = Find<Border>("ToggleOverdue");
+            _togglePending = Find<Border>("TogglePending");
             _overdueRangePanel = Find<StackPanel>("OverdueRangePanel");
             _chip7d = Find<Border>("Chip7d");
             _chip30d = Find<Border>("Chip30d");
@@ -260,6 +262,7 @@ namespace XxtWidget
             _chip60.MouseLeftButtonUp += delegate { SetRefreshInterval(60); };
             _chip120.MouseLeftButtonUp += delegate { SetRefreshInterval(120); };
             _toggleOverdue.MouseLeftButtonUp += delegate { ToggleOverdue(); };
+            _togglePending.MouseLeftButtonUp += delegate { TogglePending(); };
             _chip7d.MouseLeftButtonUp += delegate { SetOverdueDays(7); };
             _chip30d.MouseLeftButtonUp += delegate { SetOverdueDays(30); };
             _toggleAutoStart.MouseLeftButtonUp += delegate { ToggleAutoStart(); };
@@ -395,6 +398,7 @@ namespace XxtWidget
             List<HomeworkItem> list = new List<HomeworkItem>();
             foreach (CacheItem c in cache.Items)
             {
+                if (!_config.IncludePending && c.Status == "3") continue;
                 HomeworkItem item = new HomeworkItem();
                 item.Title = c.Title;
                 item.CourseName = c.CourseName;
@@ -511,7 +515,7 @@ namespace XxtWidget
                 {
                     if (!_closing) _subtitle.Text = message;
                 });
-                List<HomeworkItem> list = await _api.FetchAllAsync(_config.IncludeOverdue, _config.OverdueDays, progress, _cts.Token);
+                List<HomeworkItem> list = await _api.FetchAllAsync(_config.IncludeOverdue, _config.OverdueDays, _config.IncludePending, progress, _cts.Token);
                 if (_closing) return;
                 _all = list;
                 _warnings = new List<string>(_api.LastWarnings);
@@ -624,6 +628,7 @@ namespace XxtWidget
             StyleChip(_chip60, _config.RefreshMinutes == 60);
             StyleChip(_chip120, _config.RefreshMinutes == 120);
             StyleToggle(_toggleOverdue, _config.IncludeOverdue);
+            StyleToggle(_togglePending, _config.IncludePending);
             _overdueRangePanel.Visibility = _config.IncludeOverdue ? Visibility.Visible : Visibility.Collapsed;
             StyleChip(_chip7d, _config.OverdueDays == 7);
             StyleChip(_chip30d, _config.OverdueDays == 30);
@@ -675,6 +680,20 @@ namespace XxtWidget
             ConfigStore.Save(_configPath, _config);
             UpdateMenuState();
             HideMenu();
+            RefreshAsync(true);
+        }
+
+        private void TogglePending()
+        {
+            _config.IncludePending = !_config.IncludePending;
+            ConfigStore.Save(_configPath, _config);
+            UpdateMenuState();
+            HideMenu();
+            if (!_config.IncludePending)
+            {
+                _all.RemoveAll(delegate(HomeworkItem it) { return it.Status == "3"; });
+                ApplyItems();
+            }
             RefreshAsync(true);
         }
 

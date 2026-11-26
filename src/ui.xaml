@@ -223,6 +223,16 @@
 
           <Grid Margin="0,10,0,10">
             <StackPanel>
+              <TextBlock Text="显示待批阅作业" FontSize="11.5" Foreground="#E6FFFFFF"/>
+              <TextBlock Text="已提交、未批阅，且还没截止的作业" FontSize="9.5" Foreground="#59FFFFFF" Margin="0,3,0,0"/>
+            </StackPanel>
+            <Border x:Name="TogglePending" Width="40" Height="22" CornerRadius="11" Background="#24FFFFFF" HorizontalAlignment="Right" VerticalAlignment="Center" Cursor="Hand">
+              <Ellipse Width="16" Height="16" Fill="#F2FFFFFF" HorizontalAlignment="Left" Margin="3,0,0,0"/>
+            </Border>
+          </Grid>
+
+          <Grid Margin="0,10,0,10">
+            <StackPanel>
               <TextBlock Text="开机自动启动" FontSize="11.5" Foreground="#E6FFFFFF"/>
               <TextBlock Text="登录 Windows 后自动显示在右下角" FontSize="9.5" Foreground="#59FFFFFF" Margin="0,3,0,0"/>
             </StackPanel>

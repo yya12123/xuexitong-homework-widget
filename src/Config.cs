@@ -14,6 +14,7 @@ namespace XxtWidget
         public string PasswordProtected { get; set; }
         public int RefreshMinutes { get; set; }
         public bool IncludeOverdue { get; set; }
+        public bool IncludePending { get; set; }
         public int OverdueDays { get; set; }
         public double Opacity { get; set; }
         public bool AutoStart { get; set; }
@@ -28,6 +29,7 @@ namespace XxtWidget
             PasswordProtected = "";
             RefreshMinutes = 60;
             IncludeOverdue = false;
+            IncludePending = false;
             OverdueDays = 30;
             Opacity = 0.9;
             AutoStart = true;
